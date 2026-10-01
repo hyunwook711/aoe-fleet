@@ -1,0 +1,62 @@
+# Fleet: one dashboard pane for every machine's AoE sessions.
+# Schema reference:
+# https://agent-of-empires.com/docs/api/plugin-api/
+
+id = "dev.hyunwook.fleet"
+name = "Fleet"
+version = "0.3.0"
+api_version = 13
+aoe_version = ">=1.17.0, <2.0.0"
+description = "여러 장비의 AoE 세션 상태를 대시보드 한 패널에 모아 보여줍니다. 사용량은 dev.hyunwook.usage 플러그인이 맡습니다."
+
+# net: polls other hosts' `aoe serve`.
+capabilities = ["runtime.worker", "net"]
+
+[[commands]]
+id = "refresh"
+title = "Fleet: 지금 새로고침"
+
+[[settings]]
+key = "hosts"
+label = "장비 목록"
+description = "각 장비의 aoe serve 주소. 토큰은 설정에 넣지 않고 token_file 경로로 읽습니다. 로컬(127.0.0.1) 주소는 비워 두면 ~/.agent-of-empires/serve.token 을 씁니다."
+type = "object_list"
+max_items = 20
+
+[[settings.fields]]
+key = "name"
+label = "장비 이름"
+required = true
+
+[[settings.fields]]
+key = "url"
+label = "aoe serve URL (예: https://m4-01.tailnet.ts.net)"
+required = true
+
+[[settings.fields]]
+key = "token_file"
+label = "토큰 파일 경로 (선택)"
+
+
+[[settings]]
+key = "refresh_secs"
+label = "갱신 주기(초)"
+type = "integer"
+default = 20
+min = 5
+max = 3600
+
+
+[[ui]]
+slot = "home-pane"
+id = "fleet"
+
+
+[runtime]
+kind = "command"
+command = [".aoe-build/worker"]
+
+# Pin the build-time python3 so the daemon's PATH never decides the launch.
+[[runtime.build]]
+command = ["sh", "-c", "mkdir -p .aoe-build && printf '#!/bin/sh\\nexec %s \"$(dirname \"$0\")/../worker.py\"\\n' \"$(command -v python3)\" > .aoe-build/worker && chmod +x .aoe-build/worker"]
+platforms = ["linux", "macos"]
