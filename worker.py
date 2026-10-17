@@ -295,11 +295,20 @@ def refresh(pool: ThreadPoolExecutor) -> int:
     blocks.append({"kind": "action", "label": "지금 새로고침", "method": "refresh", "icon": "refresh-cw"})
 
     now = datetime.now(timezone.utc).astimezone().strftime("%H:%M:%S")
-    call("ui.state.set", {"slot": "home-pane", "id": "fleet", "payload": {
+    pane = {
         "title": "장비 · 세션", "icon": "server", "blocks": blocks,
         "footer": {"text": f"갱신 {now}", "value": f"장비 {online}/{len(results)}",
                    "tone": "success" if online == len(results) else "danger", "icon": "refresh-cw"},
-    }})
+    }
+    # The page state carries the same blocks so other pages (dashboards) can read the fleet without the home pane.
+    call("ui.state.set", {"slot": "page", "id": "sessions", "payload": dict(pane, updated=now)})
+    if setting("home_pane", True):
+        call("ui.state.set", {"slot": "home-pane", "id": "fleet", "payload": pane})
+    else:
+        try:
+            call("ui.state.remove", {"slot": "home-pane", "id": "fleet"})
+        except Exception as exc:  # noqa: BLE001 - nothing to remove yet
+            log(f"remove home pane: {exc}")
     return max(5, int(setting("refresh_secs", 20)))
 
 

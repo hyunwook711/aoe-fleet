@@ -4,13 +4,13 @@
 
 id = "dev.hyunwook.fleet"
 name = "Fleet"
-version = "0.5.2"
-api_version = 14
-aoe_version = ">=1.17.0, <2.0.0"
+version = "0.6.0"
+api_version = 16
+aoe_version = ">=1.20.0, <2.0.0"
 description = "여러 장비의 AoE 세션 상태를 대시보드 한 패널에 모아 보여줍니다. 사용량은 dev.hyunwook.usage 플러그인이 맡습니다."
 
 # net: polls other hosts' `aoe serve`. process.spawn: runs this hub's `aoe` CLI to manage LAN mirror sessions.
-capabilities = ["runtime.worker", "net", "process.spawn"]
+capabilities = ["runtime.worker", "net", "process.spawn", "session.read"]
 
 [[commands]]
 id = "refresh"
@@ -57,6 +57,13 @@ description = "원격 장비의 이 그룹(맨 앞 이름) 세션에는 허브 �
 type = "string_list"
 
 [[settings]]
+key = "home_pane"
+label = "홈 화면에 패널 표시"
+description = "끄면 홈 화면에서는 빠지고 \"장비 · 세션\" 페이지(와 그 상태를 읽는 대시보드)에서만 봅니다."
+type = "bool"
+default = true
+
+[[settings]]
 key = "refresh_secs"
 label = "갱신 주기(초)"
 type = "integer"
@@ -68,6 +75,13 @@ max = 3600
 [[ui]]
 slot = "home-pane"
 id = "fleet"
+
+[[ui]]
+slot = "page"
+id = "sessions"
+title = "장비 · 세션"
+icon = "server"
+entry = "sessions.html"
 
 
 [runtime]

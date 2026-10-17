@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>장비 · 세션</title>
+<style>
+  :root { --bg: #0f1115; --fg: #e6e6e6; --muted: #9aa0a6; --line: #2a2f37; --card: #161a20; --warn: #d29922; --bad: #f85149; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 16px; background: var(--background, var(--bg)); color: var(--foreground, var(--fg));
+         font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 12px; margin-bottom: 12px; }
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); align-items: start; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  .card h3 { margin: 0 0 6px; font-size: 13px; display: flex; justify-content: space-between; }
+  .row { display: flex; gap: 8px; padding: 4px 6px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+  .row:hover { background: rgba(127,127,127,.12); }
+  .tool { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: var(--muted); min-width: 80px; }
+  .title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .warn { color: var(--warn); } .bad { color: var(--bad); } .muted { color: var(--muted); }
+</style>
+</head>
+<body>
+<h1>장비 · 세션</h1>
+<div class="sub" id="sub">불러오는 중…</div>
+<div class="grid" id="grid"></div>
+<script>
+(() => {
+  let next = 0; const pending = new Map(); const { port1, port2 } = new MessageChannel();
+  port1.onmessage = ({ data: m }) => {
+    if (m.event === "theme") { for (const [k, v] of Object.entries(m.data.cssVars || {})) document.documentElement.style.setProperty(k, String(v)); return; }
+    if (m.event) return; const done = pending.get(m.id); pending.delete(m.id); if (done) done(m);
+  };
+  const request = (msg, post) => { const id = ++next; const r = new Promise((ok, no) => pending.set(id, (m) => (m.error ? no(m.error) : ok(m.result)))); post({ aoeBridge: 1, id, ...msg }); return r; };
+  const call = (method, params) => request({ method, params }, (m) => port1.postMessage(m));
+  const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+  const TONE = { warn: "warn", danger: "bad", neutral: "muted" };
+  function render(p) {
+    const grid = document.getElementById("grid"); grid.replaceChildren();
+    if (!p) { document.getElementById("sub").textContent = "아직 정보가 없습니다."; return; }
+    document.getElementById("sub").textContent = `${p.footer?.value || ""} · 갱신 ${p.updated || ""}`;
+    for (const b of p.blocks || []) {
+      if (b.kind === "callout") { const c = el("div", "card warn", `${b.title} — ${b.detail || ""}`); c.style.gridColumn = "1 / -1"; grid.append(c); continue; }
+      if (b.kind !== "section") continue;
+      const card = el("div", "card"); const h = el("h3");
+      h.append(el("span", null, b.title), el("span", TONE[b.value_tone] || "muted", b.value || (b.badges || []).map((x) => x.text).join(" · ")));
+      card.append(h);
+      for (const c of b.children || []) {
+        if (c.kind === "note") { card.append(el("div", "muted", c.text)); continue; }
+        const r = el("div", "row"); r.append(el("span", "tool", c.prefix || ""), el("span", "title", c.label || ""), el("span", TONE[c.value_tone] || "", c.value || ""));
+        const m = /^\/session\/([^/?#]+)/.exec(c.href || "");
+        if (m) r.onclick = () => call("openSession", { id: m[1] }).catch(() => {});
+        else if (c.href) r.onclick = () => window.open(c.href, "_blank", "noopener");
+        card.append(r);
+      }
+      grid.append(card);
+    }
+  }
+  async function load() {
+    try {
+      const body = await call("plugins.uiState");
+      const mine = (body.entries || []).find((e) => e.plugin_id === "dev.hyunwook.fleet" && e.slot === "page" && e.id === "sessions");
+      render(mine ? mine.payload : null);
+    } catch (e) { document.getElementById("sub").textContent = `불러오지 못했습니다: ${e.message || e.code || e}`; }
+  }
+  request({ method: "ready", params: { nonce: location.hash.slice(1) } }, (m) => parent.postMessage(m, "*", [port2])).then(load);
+  setInterval(load, 15000);
+})();
+</script>
+</body>
+</html>

@@ -59,3 +59,5 @@ python3 -m unittest discover -s tests -v
 ## License
 
 MIT
+
+- `home_pane`(기본 켬): 끄면 홈 화면 패널 없이 "장비 · 세션" 페이지에서만 봅니다.
