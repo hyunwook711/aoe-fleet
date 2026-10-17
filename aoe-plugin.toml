@@ -4,13 +4,13 @@
 
 id = "dev.hyunwook.fleet"
 name = "Fleet"
-version = "0.4.0"
+version = "0.5.0"
 api_version = 13
 aoe_version = ">=1.17.0, <2.0.0"
 description = "여러 장비의 AoE 세션 상태를 대시보드 한 패널에 모아 보여줍니다. 사용량은 dev.hyunwook.usage 플러그인이 맡습니다."
 
-# net: polls other hosts' `aoe serve`.
-capabilities = ["runtime.worker", "net"]
+# net: polls other hosts' `aoe serve`. process.spawn: runs this hub's `aoe` CLI to manage LAN mirror sessions.
+capabilities = ["runtime.worker", "net", "process.spawn"]
 
 [[commands]]
 id = "refresh"
@@ -36,6 +36,14 @@ required = true
 [[settings.fields]]
 key = "token_file"
 label = "토큰 파일 경로 (선택)"
+
+[[settings.fields]]
+key = "attach_agent"
+label = "내부망 연결 에이전트 (선택). 이 허브의 AoE custom agent 이름(예: lan-m4 = \"ssh -t m4\")을 넣으면 그 장비의 세션마다 허브에 연결 세션을 만들어 여기서 바로 엽니다"
+
+[[settings.fields]]
+key = "tmux_bin"
+label = "그 장비의 tmux 경로 (선택, 기본 tmux. macOS Homebrew는 /opt/homebrew/bin/tmux)"
 
 [[settings.fields]]
 key = "link_url"

@@ -26,7 +26,7 @@ aoe plugin install gh:hyunwook711/aoe-fleet
 aoe serve --restart
 ```
 
-요청하는 권한: `runtime.worker`, `net`(각 장비의 `GET /api/sessions` 조회).
+요청하는 권한: `runtime.worker`, `net`(각 장비의 `GET /api/sessions` 조회), `process.spawn`(`attach_agent`를 쓸 때 허브의 `aoe` CLI로 연결 세션 관리).
 
 ## 설정
 
@@ -38,12 +38,14 @@ aoe serve --restart
 | `url` | 그 장비의 `aoe serve` 주소 |
 | `token_file` | 그 장비의 토큰을 담은 파일 경로(권한 600 권장). 토큰 자체는 설정에 넣지 않습니다 |
 | `link_url` | (선택) 세션을 열 때 쓸 그 장비의 대시보드 주소. `url`이 SSH 터널 같은 로컬 주소일 때 지정합니다 |
+| `attach_agent` | (선택) 이 허브의 AoE custom agent 이름. 예: `config.toml`에 `[session.custom_agents] lan-m4 = "ssh -t m4"`를 두고 `lan-m4`를 넣으면, 그 장비의 세션마다 허브에 연결 세션을 만들어 사설망 SSH로 원격 tmux에 붙습니다. 원격 장비를 인터넷에 열지 않고 메인 대시보드 한 곳에서 모든 세션을 엽니다. 원격 세션이 끝나면 연결 세션도 지웁니다 |
+| `tmux_bin` | (선택) 그 장비의 tmux 경로. 기본 `tmux`, macOS Homebrew는 `/opt/homebrew/bin/tmux` |
 
 목록이 비어 있으면 이 장비(`http://127.0.0.1:8080`)만 보여주고, 로컬 주소는 `~/.agent-of-empires/serve.token`을 자동으로 씁니다.
 
 ## 한계
 
-- 원격 세션에 터미널로 바로 붙지는 않습니다. 링크로 그 장비의 대시보드를 엽니다.
+- `attach_agent`가 없는 장비는 링크로 그 장비의 대시보드를 엽니다.
 - 장비 상태는 주기적으로 물어봐서 갱신합니다. AoE의 `callback_url`은 사설 주소로 알림을 보내지 않습니다.
 - 이 장비 한 대와 일부러 닿지 않게 한 주소로만 시험했습니다. 실제 다른 장비의 `aoe serve`에 붙여 본 적은 아직 없습니다.
 

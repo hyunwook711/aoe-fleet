@@ -38,6 +38,34 @@ class HostSection(unittest.TestCase):
         section = worker.host_section({"host": host, "sessions": SESSIONS[:1], "error": None})
         self.assertEqual(section["children"][0]["href"], "https://aoe-m4.example.com/session/a1")
 
+    def test_lan_mirrors_created_linked_and_pruned(self) -> None:
+        from unittest.mock import patch
+        host = {"name": "m4", "url": "http://127.0.0.1:8789", "attach_agent": "lan-m4", "tmux_bin": "/opt/homebrew/bin/tmux"}
+        hub = [{"id": "h-old", "title": "m4: gone", "tool": "lan-m4", "state": "live"},
+               {"id": "h-other", "title": "m6: x", "tool": "lan-m6", "state": "live"}]
+        calls = []
+
+        def fake_aoe(*args, timeout=60.0):
+            calls.append(args)
+            if args[0] == "list":
+                import json
+                return json.dumps(hub)
+            if args[0] == "add":
+                hub.append({"id": "h-new", "title": args[args.index("-t") + 1], "tool": "lan-m4", "state": "live"})
+            return ""
+
+        with patch.object(worker, "aoe", fake_aoe):
+            links = worker.sync_mirrors(host, [{"id": "abcdef1234567890", "title": "fix bug"}])
+        self.assertEqual(links, {"abcdef1234567890": "h-new"})
+        add = next(c for c in calls if c[0] == "add")
+        import shlex
+        self.assertIn("/opt/homebrew/bin/tmux attach -t " + shlex.quote("'*_abcdef12'"), add)
+        self.assertIn(("rm", "--purge", "h-old"), calls)
+        self.assertNotIn(("rm", "--purge", "h-other"), calls)
+        section = worker.host_section({"host": host, "sessions": [{"id": "abcdef1234567890", "title": "fix bug"}],
+                                       "error": None, "mirrors": links})
+        self.assertEqual(section["children"][0]["href"], "/session/h-new")
+
     def test_unreachable_host(self) -> None:
         section = worker.host_section({"host": {"name": "win", "url": "http://10.0.0.9:8080"},
                                        "sessions": [], "error": "Connection refused"})

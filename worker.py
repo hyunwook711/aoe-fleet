@@ -10,6 +10,8 @@ from __future__ import annotations
 import itertools
 import json
 import os
+import shlex
+import subprocess
 import sys
 import threading
 import urllib.error
@@ -142,10 +144,71 @@ def fetch_host(host: dict[str, Any]) -> dict[str, Any]:
     base = host["url"].rstrip("/")
     try:
         data = http_json(f"{base}/api/sessions?state=live", host_token(host))
-        return {"host": host, "sessions": data.get("sessions", []), "error": None}
+        sessions = data.get("sessions", [])
+        mirrors = sync_mirrors(host, sessions) if host.get("attach_agent") else {}
+        return {"host": host, "sessions": sessions, "error": None, "mirrors": mirrors}
     except (urllib.error.URLError, OSError, ValueError) as exc:
         reason = getattr(exc, "reason", None) or exc
         return {"host": host, "sessions": [], "error": str(reason)}
+
+
+# --- LAN mirrors -----------------------------------------------------------------------------------------
+# A host with `attach_agent` (an AoE custom agent on this hub whose command SSHes to that host, for example
+# `[session.custom_agents] lan-m4 = "ssh -t m4"`) gets one hub session per remote terminal session. The hub
+# session attaches the remote AoE tmux session over SSH, so every machine's sessions open from this one
+# dashboard and the terminal traffic stays on the private network.
+MIRROR_GROUP = "fleet"
+
+
+def aoe(*args: str, timeout: float = 60.0) -> str:
+    done = subprocess.run(["aoe", *args], capture_output=True, text=True, timeout=timeout)
+    if done.returncode != 0:
+        raise RuntimeError((done.stderr or done.stdout).strip()[-300:])
+    return done.stdout
+
+
+def local_mirrors(agent: str) -> dict[str, dict[str, Any]]:
+    rows = json.loads(aoe("list", "--json") or "[]")
+    rows = rows if isinstance(rows, list) else rows.get("sessions", [])
+    return {r["title"]: r for r in rows
+            if r.get("tool") == agent and r.get("state") != "trashed" and (r.get("title") or "").count(": ")}
+
+
+def mirror_title(host: dict[str, Any], session: dict[str, Any]) -> str:
+    return f"{host['name']}: {session.get('title') or session['id']}"
+
+
+def sync_mirrors(host: dict[str, Any], sessions: list[dict[str, Any]]) -> dict[str, str]:
+    """Create hub sessions for new remote terminal sessions, drop those whose remote session is gone.
+    Returns remote session id -> hub session id."""
+    agent = host["attach_agent"]
+    tmux = (host.get("tmux_bin") or "tmux").strip()
+    existing = {t: r for t, r in local_mirrors(agent).items() if t.startswith(host["name"] + ": ")}
+    wanted: dict[str, dict[str, Any]] = {}
+    for s in sessions:
+        wanted[mirror_title(host, s)] = s
+    links: dict[str, str] = {}
+    for title, s in wanted.items():
+        row = existing.get(title)
+        if row is None:
+            # Quoted twice: AoE runs the command through a local shell, then ssh hands it to the remote shell.
+            target = shlex.quote(shlex.quote(f"*_{s['id'][:8]}"))
+            try:
+                aoe("add", "--scratch", "-t", title, "-g", f"{MIRROR_GROUP}/{host['name']}", "--tool", agent,
+                    "--extra-args", f"{tmux} attach -t {target}", "-l", timeout=90)
+                row = local_mirrors(agent).get(title)
+            except Exception as exc:  # noqa: BLE001
+                log(f"mirror {title}: {exc}")
+                continue
+        if row:
+            links[s["id"]] = row["id"]
+    for title, row in existing.items():
+        if title not in wanted:
+            try:
+                aoe("rm", "--purge", row["id"], timeout=60)
+            except Exception as exc:  # noqa: BLE001
+                log(f"remove mirror {title}: {exc}")
+    return links
 
 
 def host_section(result: dict[str, Any]) -> dict[str, Any]:
@@ -173,7 +236,8 @@ def host_section(result: dict[str, Any]) -> dict[str, Any]:
             "sublabel": " · ".join(filter(None, [s.get("group_path"), s.get("branch")])),
             "value": STATUS_KO.get(status, status),
             "value_tone": STATUS_TONE.get(status, "neutral"),
-            "href": f"{link}/session/{s['id']}" if link
+            "href": f"/session/{result['mirrors'][s['id']]}" if s["id"] in result.get("mirrors", {})
+            else f"{link}/session/{s['id']}" if link
             else f"{base}/session/{s['id']}" if not is_loopback(base) else f"/session/{s['id']}",
             "mono": False,
         })
