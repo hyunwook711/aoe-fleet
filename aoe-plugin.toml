@@ -4,7 +4,7 @@
 
 id = "dev.hyunwook.fleet"
 name = "Fleet"
-version = "0.3.0"
+version = "0.4.0"
 api_version = 13
 aoe_version = ">=1.17.0, <2.0.0"
 description = "여러 장비의 AoE 세션 상태를 대시보드 한 패널에 모아 보여줍니다. 사용량은 dev.hyunwook.usage 플러그인이 맡습니다."
@@ -36,6 +36,10 @@ required = true
 [[settings.fields]]
 key = "token_file"
 label = "토큰 파일 경로 (선택)"
+
+[[settings.fields]]
+key = "link_url"
+label = "세션 열기 주소 (선택, 예: https://aoe-m4.example.com). URL이 터널용 로컬 주소일 때 브라우저가 열 그 장비의 대시보드 주소"
 
 
 [[settings]]

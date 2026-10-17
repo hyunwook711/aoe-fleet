@@ -33,6 +33,11 @@ class HostSection(unittest.TestCase):
                                        "sessions": SESSIONS[:1], "error": None})
         self.assertEqual(section["children"][0]["href"], "/session/a1")
 
+    def test_tunneled_host_links_to_its_public_dashboard(self) -> None:
+        host = {"name": "m4", "url": "http://127.0.0.1:8789", "link_url": "https://aoe-m4.example.com/"}
+        section = worker.host_section({"host": host, "sessions": SESSIONS[:1], "error": None})
+        self.assertEqual(section["children"][0]["href"], "https://aoe-m4.example.com/session/a1")
+
     def test_unreachable_host(self) -> None:
         section = worker.host_section({"host": {"name": "win", "url": "http://10.0.0.9:8080"},
                                        "sessions": [], "error": "Connection refused"})

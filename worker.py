@@ -151,6 +151,8 @@ def fetch_host(host: dict[str, Any]) -> dict[str, Any]:
 def host_section(result: dict[str, Any]) -> dict[str, Any]:
     host = result["host"]
     base = host["url"].rstrip("/")
+    # A host reached through a local tunnel opens its sessions at its own public dashboard.
+    link = (host.get("link_url") or "").strip().rstrip("/")
     if result["error"]:
         return {"kind": "section", "title": host["name"], "boxed": True, "value": "연결 끊김",
                 "value_tone": "danger",
@@ -171,7 +173,8 @@ def host_section(result: dict[str, Any]) -> dict[str, Any]:
             "sublabel": " · ".join(filter(None, [s.get("group_path"), s.get("branch")])),
             "value": STATUS_KO.get(status, status),
             "value_tone": STATUS_TONE.get(status, "neutral"),
-            "href": f"{base}/session/{s['id']}" if not is_loopback(base) else f"/session/{s['id']}",
+            "href": f"{link}/session/{s['id']}" if link
+            else f"{base}/session/{s['id']}" if not is_loopback(base) else f"/session/{s['id']}",
             "mono": False,
         })
     if len(sessions) > MAX_ROWS_PER_HOST:
