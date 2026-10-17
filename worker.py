@@ -199,7 +199,11 @@ def sync_mirrors(host: dict[str, Any], sessions: list[dict[str, Any]]) -> dict[s
     tmux = (host.get("tmux_bin") or "tmux").strip()
     existing = {t: r for t, r in local_mirrors(agent).items() if t.startswith(host["name"] + ": ")}
     wanted: dict[str, dict[str, Any]] = {}
+    skip = {g.strip() for g in setting("mirror_skip_groups", []) or [] if isinstance(g, str) and g.strip()}
     for s in sessions:
+        group = (s.get("group_path") or "").split("/")[0]
+        if group and group in skip:
+            continue
         wanted[mirror_title(host, s)] = s
     links: dict[str, str] = {}
     statuses = hub_status() if existing else {}

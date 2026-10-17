@@ -4,8 +4,8 @@
 
 id = "dev.hyunwook.fleet"
 name = "Fleet"
-version = "0.5.1"
-api_version = 13
+version = "0.5.2"
+api_version = 14
 aoe_version = ">=1.17.0, <2.0.0"
 description = "여러 장비의 AoE 세션 상태를 대시보드 한 패널에 모아 보여줍니다. 사용량은 dev.hyunwook.usage 플러그인이 맡습니다."
 
@@ -49,6 +49,12 @@ label = "그 장비의 tmux 경로 (선택, 기본 tmux. macOS Homebrew는 /opt/
 key = "link_url"
 label = "세션 열기 주소 (선택, 예: https://aoe-m4.example.com). URL이 터널용 로컬 주소일 때 브라우저가 열 그 장비의 대시보드 주소"
 
+
+[[settings]]
+key = "mirror_skip_groups"
+label = "연결 세션을 만들지 않을 그룹"
+description = "원격 장비의 이 그룹(맨 앞 이름) 세션에는 허브 연결 세션을 만들지 않습니다. 예: 사용량 확인처럼 화면 크기가 바뀌면 안 되는 상시 세션."
+type = "string_list"
 
 [[settings]]
 key = "refresh_secs"

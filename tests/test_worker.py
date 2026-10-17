@@ -54,7 +54,8 @@ class HostSection(unittest.TestCase):
                 hub.append({"id": "h-new", "title": args[args.index("-t") + 1], "tool": "lan-m4", "state": "live"})
             return ""
 
-        with patch.object(worker, "aoe", fake_aoe), patch.object(worker, "hub_status", return_value={}):
+        with patch.object(worker, "aoe", fake_aoe), patch.object(worker, "hub_status", return_value={}), \
+                patch.object(worker, "setting", lambda key, default: default):
             links = worker.sync_mirrors(host, [{"id": "abcdef1234567890", "title": "fix bug"}])
         self.assertEqual(links, {"abcdef1234567890": "h-new"})
         add = next(c for c in calls if c[0] == "add")
@@ -83,10 +84,21 @@ class HostSection(unittest.TestCase):
                 hub.append({"id": "h-new", "title": args[args.index("-t") + 1], "tool": "lan-m4", "state": "live"})
             return ""
 
-        with patch.object(worker, "aoe", fake_aoe), patch.object(worker, "hub_status", return_value={"h-dead": "Error"}):
+        with patch.object(worker, "aoe", fake_aoe), patch.object(worker, "hub_status", return_value={"h-dead": "Error"}), \
+                patch.object(worker, "setting", lambda key, default: default):
             links = worker.sync_mirrors(host, [{"id": "fedcba9876543210", "title": "keeper"}])
         self.assertEqual(links, {"fedcba9876543210": "h-new"})
         self.assertIn(("rm", "--purge", "h-dead"), calls)
+
+    def test_skipped_groups_get_no_mirror(self) -> None:
+        from unittest.mock import patch
+        host = {"name": "m4", "url": "http://127.0.0.1:8789", "attach_agent": "lan-m4"}
+        calls = []
+        with patch.object(worker, "aoe", lambda *a, timeout=60.0: calls.append(a) or "[]"), \
+             patch.object(worker, "setting", lambda key, default: ["keepers"] if key == "mirror_skip_groups" else default):
+            links = worker.sync_mirrors(host, [{"id": "abcdef1234567890", "title": "agy-usage-keeper", "group_path": "keepers"}])
+        self.assertEqual(links, {})
+        self.assertFalse([c for c in calls if c[0] == "add"])
 
     def test_unreachable_host(self) -> None:
         section = worker.host_section({"host": {"name": "win", "url": "http://10.0.0.9:8080"},
