@@ -178,6 +178,20 @@ def mirror_title(host: dict[str, Any], session: dict[str, Any]) -> str:
     return f"{host['name']}: {session.get('title') or session['id']}"
 
 
+def hub_status() -> dict[str, str]:
+    """Status of this hub's sessions (mirror id -> status), from the first loopback host without attach_agent."""
+    hub = next((h for h in setting("hosts", []) if isinstance(h, dict) and h.get("url") and is_loopback(h["url"])
+                and not h.get("attach_agent")), None)
+    if not hub:
+        return {}
+    try:
+        data = http_json(hub["url"].rstrip("/") + "/api/sessions?state=live", host_token(hub))
+        return {s["id"]: s.get("status") or "" for s in data.get("sessions", [])}
+    except Exception as exc:  # noqa: BLE001
+        log(f"hub status: {exc}")
+        return {}
+
+
 def sync_mirrors(host: dict[str, Any], sessions: list[dict[str, Any]]) -> dict[str, str]:
     """Create hub sessions for new remote terminal sessions, drop those whose remote session is gone.
     Returns remote session id -> hub session id."""
@@ -188,8 +202,16 @@ def sync_mirrors(host: dict[str, Any], sessions: list[dict[str, Any]]) -> dict[s
     for s in sessions:
         wanted[mirror_title(host, s)] = s
     links: dict[str, str] = {}
+    statuses = hub_status() if existing else {}
     for title, s in wanted.items():
         row = existing.get(title)
+        # A remote session recreated under the same title leaves the old mirror attached to nothing.
+        if row is not None and statuses.get(row["id"]) in ("Error", "Stopped"):
+            try:
+                aoe("rm", "--purge", row["id"], timeout=60)
+            except Exception as exc:  # noqa: BLE001
+                log(f"replace mirror {title}: {exc}")
+            row = None
         if row is None:
             # Quoted twice: AoE runs the command through a local shell, then ssh hands it to the remote shell.
             target = shlex.quote(shlex.quote(f"*_{s['id'][:8]}"))

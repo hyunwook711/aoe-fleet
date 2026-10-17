@@ -54,7 +54,7 @@ class HostSection(unittest.TestCase):
                 hub.append({"id": "h-new", "title": args[args.index("-t") + 1], "tool": "lan-m4", "state": "live"})
             return ""
 
-        with patch.object(worker, "aoe", fake_aoe):
+        with patch.object(worker, "aoe", fake_aoe), patch.object(worker, "hub_status", return_value={}):
             links = worker.sync_mirrors(host, [{"id": "abcdef1234567890", "title": "fix bug"}])
         self.assertEqual(links, {"abcdef1234567890": "h-new"})
         add = next(c for c in calls if c[0] == "add")
@@ -65,6 +65,28 @@ class HostSection(unittest.TestCase):
         section = worker.host_section({"host": host, "sessions": [{"id": "abcdef1234567890", "title": "fix bug"}],
                                        "error": None, "mirrors": links})
         self.assertEqual(section["children"][0]["href"], "/session/h-new")
+
+    def test_broken_mirror_is_replaced(self) -> None:
+        from unittest.mock import patch
+        import json
+        host = {"name": "m4", "url": "http://127.0.0.1:8789", "attach_agent": "lan-m4"}
+        hub = [{"id": "h-dead", "title": "m4: keeper", "tool": "lan-m4", "state": "live"}]
+        calls = []
+
+        def fake_aoe(*args, timeout=60.0):
+            calls.append(args)
+            if args[0] == "list":
+                return json.dumps(hub)
+            if args[:2] == ("rm", "--purge"):
+                hub[:] = [r for r in hub if r["id"] != args[2]]
+            if args[0] == "add":
+                hub.append({"id": "h-new", "title": args[args.index("-t") + 1], "tool": "lan-m4", "state": "live"})
+            return ""
+
+        with patch.object(worker, "aoe", fake_aoe), patch.object(worker, "hub_status", return_value={"h-dead": "Error"}):
+            links = worker.sync_mirrors(host, [{"id": "fedcba9876543210", "title": "keeper"}])
+        self.assertEqual(links, {"fedcba9876543210": "h-new"})
+        self.assertIn(("rm", "--purge", "h-dead"), calls)
 
     def test_unreachable_host(self) -> None:
         section = worker.host_section({"host": {"name": "win", "url": "http://10.0.0.9:8080"},
