@@ -204,6 +204,8 @@ def sync_mirrors(host: dict[str, Any], sessions: list[dict[str, Any]]) -> dict[s
         group = (s.get("group_path") or "").split("/")[0]
         if group and group in skip:
             continue
+        if s.get("status") == "Stopped":
+            continue  # nothing to attach to; an existing mirror is removed below and comes back when it restarts
         wanted[mirror_title(host, s)] = s
     links: dict[str, str] = {}
     statuses = hub_status() if existing else {}

@@ -4,7 +4,7 @@
 
 id = "dev.hyunwook.fleet"
 name = "Fleet"
-version = "0.6.0"
+version = "0.6.1"
 api_version = 16
 aoe_version = ">=1.20.0, <2.0.0"
 description = "여러 장비의 AoE 세션 상태를 대시보드 한 패널에 모아 보여줍니다. 사용량은 dev.hyunwook.usage 플러그인이 맡습니다."
